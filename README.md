@@ -62,7 +62,7 @@ It also prints the install command for any missing peer dependency (`typescript`
 
 - `--dry-run` previews the changes without writing.
 - `--force` overwrites an existing ESLint config.
-- `npx github:wingravity/strict-ts#v0.1.0 init` runs a specific release.
+- `npx "github:wingravity/strict-ts#v0.2.0" init` runs a specific release.
 
 </details>
 
@@ -70,7 +70,7 @@ It also prints the install command for any missing peer dependency (`typescript`
 <summary><b>Manual setup</b></summary>
 
 ```sh
-npm install -D github:wingravity/strict-ts#v0.1.0 typescript eslint typescript-eslint
+npm install -D "github:wingravity/strict-ts#v0.2.0" typescript eslint typescript-eslint
 ```
 
 ```jsonc
