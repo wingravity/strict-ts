@@ -1,0 +1,90 @@
+#!/usr/bin/env node
+import { parseArgs } from "node:util";
+import { join } from "node:path";
+import { readTextFile } from "../node/fs.js";
+import { safeJsonParse } from "../safe/json.js";
+import { isRecord } from "./jsonc.js";
+import { applyInit, installCommand, planInit } from "./init.js";
+const USAGE = `Usage: strict-ts <command> [options]
+
+Commands:
+  init        Set up strict-ts in the current project
+
+Options for init:
+  --dry-run   Show what would change without writing anything
+  --force     Overwrite an existing ESLint config
+  -h, --help  Show this help`;
+const FALLBACK_SPEC = "github:wingravity/strict-ts";
+async function packageSpec() {
+    const text = await readTextFile(join(import.meta.dirname, "../../package.json"));
+    const pkg = text.ok ? safeJsonParse(text.value) : undefined;
+    if (pkg?.ok !== true || !isRecord(pkg.value)) {
+        return FALLBACK_SPEC;
+    }
+    const { repository, version } = pkg.value;
+    if (typeof repository !== "string" || typeof version !== "string") {
+        return FALLBACK_SPEC;
+    }
+    return `${repository}#v${version}`;
+}
+function printReport(report, dryRun) {
+    const verb = (status) => (dryRun && (status === "created" || status === "updated") ? `would be ${status}` : status);
+    const width = Math.max(...report.changes.map((change) => change.file.length));
+    console.log(dryRun ? "strict-ts init (dry run, nothing written)\n" : "strict-ts init\n");
+    for (const change of report.changes) {
+        console.log(`  ${verb(change.status).padEnd(16)} ${change.file.padEnd(width)}  ${change.detail}`);
+    }
+    for (const note of report.notes) {
+        console.log(`\n${note}`);
+    }
+    console.log(`\nNext: ${installCommand(report.packageManager, report.missingPeers)}`);
+    console.log(`Then: ${report.packageManager} run check`);
+}
+async function init(args) {
+    const parsed = parseArgs({
+        args: [...args],
+        options: {
+            "dry-run": { type: "boolean", default: false },
+            force: { type: "boolean", default: false },
+            help: { type: "boolean", short: "h", default: false },
+        },
+        strict: false,
+    });
+    if (parsed.values.help === true) {
+        console.log(USAGE);
+        return 0;
+    }
+    const dryRun = parsed.values["dry-run"] === true;
+    const cwd = process.cwd();
+    const report = await planInit({ cwd, packageSpec: await packageSpec(), dryRun, force: parsed.values.force === true });
+    if (!report.ok) {
+        console.error(`strict-ts init: ${report.error}`);
+        return 1;
+    }
+    if (!dryRun) {
+        const applied = await applyInit(cwd, report.value);
+        if (!applied.ok) {
+            console.error(`strict-ts init: could not write ${applied.error.path}: ${applied.error.message}`);
+            return 1;
+        }
+    }
+    printReport(report.value, dryRun);
+    return 0;
+}
+async function main(argv) {
+    const [command, ...rest] = argv;
+    switch (command) {
+        case "init":
+            return init(rest);
+        case undefined:
+        case "-h":
+        case "--help":
+            console.log(USAGE);
+            return 0;
+        default:
+            console.error(`Unknown command: ${command}\n\n${USAGE}`);
+            return 1;
+    }
+}
+process.exitCode = await main(process.argv.slice(2));
+//# sourceMappingURL=main.js.map
