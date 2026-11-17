@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { applyInit, CHECK_SCRIPT, planInit, type InitReport } from "../src/cli/init.ts";
+import { AGENTS_END, AGENTS_START, applyInit, CHECK_SCRIPT, planInit, type InitReport } from "../src/cli/init.ts";
 import { parseJsonc } from "../src/cli/jsonc.ts";
 
 const SPEC = "github:wingravity/strict-ts#v1.2.3";
@@ -61,6 +61,7 @@ describe("strict-ts init", () => {
       "tsconfig.json": "updated",
       "eslint.config.js": "created",
       "package.json": "updated",
+      "AGENTS.md": "created",
       ".vscode/extensions.json": "created",
       ".vscode/settings.json": "created",
     });
@@ -195,6 +196,53 @@ describe("strict-ts init", () => {
     const report = await init();
     assert.equal(statuses(report)["tsconfig.json"], "skipped");
     assert.equal(report.packageManager, "pnpm");
+  });
+
+  it("adds strict-ts instructions to an existing AGENTS.md once", async () => {
+    await write("package.json", `{ "name": "app" }`);
+    await write("tsconfig.json", `{}`);
+    await write("AGENTS.md", "# Team rules\n\nUse tabs.\n");
+
+    const first = await init();
+    assert.equal(statuses(first)["AGENTS.md"], "updated");
+    const agents = await read("AGENTS.md");
+    assert.ok(agents.startsWith("# Team rules\n\nUse tabs.\n\n<!-- strict-ts:start -->"));
+    assert.ok(agents.includes("npm run check"));
+
+    const second = await init();
+    assert.equal(statuses(second)["AGENTS.md"], "unchanged");
+    assert.equal(await read("AGENTS.md"), agents);
+  });
+
+  it("replaces an outdated strict-ts section and keeps the rest", async () => {
+    await write("package.json", `{ "name": "app" }`);
+    await write("tsconfig.json", `{}`);
+    await write("pnpm-lock.yaml", "");
+    await write("AGENTS.md", `Before\n\n${AGENTS_START}\nold rules\n${AGENTS_END}\n\nAfter\n`);
+
+    const report = await init();
+    assert.equal(statuses(report)["AGENTS.md"], "updated");
+    const agents = await read("AGENTS.md");
+    assert.ok(agents.startsWith("Before\n\n<!-- strict-ts:start -->"));
+    assert.ok(agents.endsWith(`${AGENTS_END}\n\nAfter\n`));
+    assert.ok(!agents.includes("old rules"));
+    assert.ok(agents.includes("pnpm run check"));
+  });
+
+  it("makes an existing CLAUDE.md import AGENTS.md, and never creates one", async () => {
+    await write("package.json", `{ "name": "app" }`);
+    await write("tsconfig.json", `{}`);
+    const without = await init();
+    assert.equal(statuses(without)["CLAUDE.md"], undefined);
+    await assert.rejects(read("CLAUDE.md"));
+
+    await write("CLAUDE.md", "Prefer small commits.\n");
+    const added = await init();
+    assert.equal(statuses(added)["CLAUDE.md"], "updated");
+    assert.equal(await read("CLAUDE.md"), "@AGENTS.md\n\nPrefer small commits.\n");
+
+    const again = await init();
+    assert.equal(statuses(again)["CLAUDE.md"], "unchanged");
   });
 
   it("fails without a package.json", async () => {

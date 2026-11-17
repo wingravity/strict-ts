@@ -8,7 +8,8 @@ The package contains:
 - `strict-ts/eslint`: an ESLint configuration that disallows type assertions, `any` and throwing outside boundary files, and reports discarded Results and unhandled promises.
 - `strict-ts` and `strict-ts/safe`: a Result type with no runtime dependencies, and non-throwing replacements for built-ins that throw (`JSON.parse`, `new URL`, `fetch` and others).
 - `strict-ts/node`: Node filesystem functions that return Results, and process handlers for uncaught errors and shutdown signals.
-- `strict-ts init`: a command that adds the configuration to a project.
+- `strict-ts init`: a command that adds the configuration and coding-agent instructions to a project.
+- `strict-ts report`: a command that groups every finding by its likely runtime consequence.
 
 Functions that can fail return a Result, and callers check it, Go style:
 
@@ -34,7 +35,7 @@ npm install
 npm run check
 ```
 
-`init` updates `tsconfig.json`, the ESLint configuration and `package.json`, and prints each change. `npm run check` runs `tsc --noEmit && eslint .`.
+`init` updates `tsconfig.json`, the ESLint configuration, `package.json` and `AGENTS.md`, and prints each change. `npm run check` runs `tsc --noEmit && eslint .`.
 
 In an existing codebase, record the current lint findings so that only new code is checked:
 
@@ -52,6 +53,8 @@ Commit the generated `eslint-suppressions.json`. TypeScript errors cannot be sup
 | `tsconfig.json` | adds `strict-ts/tsconfig.json` to `extends` (comments and formatting are kept) |
 | `eslint.config.js` | creates it, or prints the lines to merge if one exists |
 | `package.json` | adds a `check` script and `strict-ts` as a dev dependency pinned to the release tag |
+| `AGENTS.md` | adds a strict-ts section with instructions for coding agents, or creates the file |
+| `CLAUDE.md` | if it exists, adds `@AGENTS.md` so Claude Code also reads those instructions; never created |
 | `.vscode/extensions.json` | recommends the ESLint extension |
 | `.vscode/settings.json` | uses the project's TypeScript version and applies bulk suppressions in the editor |
 
@@ -121,6 +124,37 @@ jobs:
 ```
 
 To block merging on failures, mark the **Check** job as required in the branch protection rules. For pnpm, Yarn or Bun, replace the install and run commands.
+
+## Report
+
+`npm run check` stops at the first failing tool and lists findings in file order. `strict-ts report` runs the TypeScript compiler and ESLint together and orders every finding by the worst realistic runtime consequence of its rule:
+
+| Priority | Meaning | Examples |
+|---|---|---|
+| P0: Process can go down | can stop the whole process | floating promises, async callbacks where a void callback is expected |
+| P1: Silent wrong result | wrong data or behavior with no error raised | `as` casts, `any`, ignored Results, truthiness checks, non-exhaustive switches |
+| P2: Request fails | throws at runtime and fails one request | possibly undefined access, `!`, throwing built-ins |
+| P3: Weak error handling | makes failures likelier or harder to handle | `throw`/`try` outside boundaries, unbounded schemas and loops |
+| P4: No runtime effect | clarity only | bracket access, unused code, redundant expressions |
+
+```sh
+npx strict-ts report                 # writes strict-ts-report.md
+npx strict-ts report --next 20       # the 20 highest-priority findings, with fix instructions
+npx strict-ts report --format json   # all findings as JSON
+```
+
+Production code is listed before tests. Each rule in the report states why it matters and how to fix it, and the report lists the files with the most P0 to P2 findings. It also lists any strict-ts rule or compiler flag that the project's configuration turns off or downgrades.
+
+The report includes findings recorded in `eslint-suppressions.json`; `--respect-suppressions` leaves them out. `--project <tsconfig>` selects the tsconfig. The command always exits with code 0: use `npm run check` as the CI gate. Add `strict-ts-report.md` to `.gitignore` if it should not be committed.
+
+## Coding agents
+
+strict-ts is designed to be used by coding agents such as Claude Code, Codex, Copilot and Cursor.
+
+- **Instructions:** `init` adds a strict-ts section to `AGENTS.md`, the instruction file these agents read. It covers Results, the banned constructs, the safe replacements, boundary files, and that the check must pass. The section sits between `<!-- strict-ts:start -->` and `<!-- strict-ts:end -->`, and running `init` again refreshes it without touching the rest of the file. Claude Code reads `AGENTS.md` unless the project has a `CLAUDE.md`, so `init` adds an `@AGENTS.md` import to an existing `CLAUDE.md`.
+- **API reference:** `node_modules/strict-ts/docs/api.md` lists every function, its error kinds and the expected code patterns.
+- **Work queue:** `npx strict-ts report --next 20` gives an agent a short, prioritized list of findings with a fix instruction for each. `--format json` gives the same data in a stable shape.
+- **No shortcuts:** `// eslint-disable` comments have no effect, and the report shows any rule or compiler flag weakened in the configuration.
 
 ## API
 
@@ -318,9 +352,10 @@ Compiler flags apply to every file in a tsconfig. If tests need looser compiler 
 
 1. Run `init`.
 2. Run `npx eslint . --suppress-all` and commit `eslint-suppressions.json`. New code must be clean; shrink the file as you fix code with `npx eslint . --prune-suppressions`.
-3. Fix the TypeScript errors. Bulk suppressions only cover ESLint. Most fixes are mechanical: handle the `undefined` from index access, use bracket access on dynamic objects, leave optional properties out instead of passing `undefined`.
-4. Wrap throwing SDKs in boundary files and list them in `throwingModules`.
-5. Add `installProcessGuards` at startup.
+3. Run `npx strict-ts report` to see which findings to fix first.
+4. Fix the TypeScript errors. Bulk suppressions only cover ESLint. Most fixes are mechanical: handle the `undefined` from index access, use bracket access on dynamic objects, leave optional properties out instead of passing `undefined`.
+5. Wrap throwing SDKs in boundary files and list them in `throwingModules`.
+6. Add `installProcessGuards` at startup.
 
 `init` sets `"eslint.options": { "applySuppressions": true }` in `.vscode/settings.json` so the VS Code ESLint extension hides suppressed findings the same way CI does.
 
@@ -337,7 +372,7 @@ npm test          # includes fixtures proving each rule fires
 npm run build
 ```
 
-`test/fixtures/project` holds intentionally bad code. Each line marked `// @expect <rule>` must produce exactly that finding.
+`test/fixtures/project` holds intentionally bad code. Each line marked `// @expect <rule>` must produce exactly that finding. Every rule the configuration enables must have a priority in `src/cli/report/classify.ts`; a test enforces this.
 
 `main` holds source only. Running the **Release** workflow with a version such as `0.2.0` runs the checks, builds, commits `dist/` onto a release commit, tags it `v0.2.0`, and moves the `release` branch (the repository's default) to it. That is why `npx github:wingravity/strict-ts init` runs the latest release, and why installs never need a build step.
 

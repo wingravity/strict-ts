@@ -64,6 +64,68 @@ export default [
 `;
 }
 
+export const AGENTS_START = "<!-- strict-ts:start -->";
+export const AGENTS_END = "<!-- strict-ts:end -->";
+
+export function agentsSection(packageManager: string): string {
+  return `${AGENTS_START}
+## strict-ts
+
+This project uses [strict-ts](https://github.com/wingravity/strict-ts). A change is complete only when \`${packageManager} run check\` passes.
+
+- Functions that can fail return a \`Result\` from \`strict-ts\` (\`ok(value)\`, \`err(error)\`). Callers check \`.ok\`. Do not throw.
+- Do not use \`as\` (except \`as const\`), non-null \`!\`, \`any\` or \`@ts-\` comments. Validate external data with \`parseWith(schema, value)\` from \`strict-ts/safe\`.
+- Use the \`strict-ts/safe\` replacements for \`JSON.parse\`, \`JSON.stringify\`, \`new URL\`, \`fetch\`, \`response.json()\`, \`decodeURIComponent\` and the other built-ins that throw.
+- Code that must call throwing APIs or SDKs goes in \`*.boundary.ts\` files, wrapped with \`attempt()\` or \`attemptAsync()\`, and exposes functions that return Results.
+- \`// eslint-disable\` comments have no effect. Do not add them, and do not weaken \`eslint.config.js\` or \`tsconfig.json\` to make the check pass.
+- Run \`npx strict-ts report --next 20\` for the highest-priority findings, each with a fix instruction.
+- API reference: \`node_modules/strict-ts/docs/api.md\`.
+${AGENTS_END}`;
+}
+
+function planAgents(text: string | undefined, packageManager: string): Change {
+  const file = "AGENTS.md";
+  const section = agentsSection(packageManager);
+  if (text === undefined) {
+    return {
+      file,
+      status: "created",
+      detail: "strict-ts instructions for coding agents",
+      content: `# Instructions for coding agents\n\n${section}\n`,
+    };
+  }
+  const start = text.indexOf(AGENTS_START);
+  const end = text.indexOf(AGENTS_END);
+  if (start === -1 || end < start) {
+    return {
+      file,
+      status: "updated",
+      detail: "added strict-ts instructions",
+      content: `${text.trimEnd()}\n\n${section}\n`,
+    };
+  }
+  const updated = text.slice(0, start) + section + text.slice(end + AGENTS_END.length);
+  return updated === text
+    ? { file, status: "unchanged", detail: "strict-ts instructions are current" }
+    : { file, status: "updated", detail: "refreshed strict-ts instructions", content: updated };
+}
+
+function planClaude(text: string | undefined): Change | undefined {
+  if (text === undefined) {
+    return undefined;
+  }
+  const file = "CLAUDE.md";
+  if (/^@AGENTS\.md\s*$/mu.test(text)) {
+    return { file, status: "unchanged", detail: "already imports AGENTS.md" };
+  }
+  return {
+    file,
+    status: "updated",
+    detail: "imports AGENTS.md, so Claude Code also reads it",
+    content: `@AGENTS.md\n\n${text}`,
+  };
+}
+
 function planTsconfig(text: string | undefined): Result<Change, string> {
   const file = "tsconfig.json";
   if (text === undefined) {
@@ -279,15 +341,33 @@ export async function planInit(options: InitOptions): AsyncResult<InitReport, st
   }
 
   const eslint = planEslint(await findEslintConfig(cwd), pkg.value["type"] === "module", options.force === true);
+  const packageManager = await detectPackageManager(cwd);
+  const agentsText = await readOptional(join(cwd, "AGENTS.md"));
+  const claudeText = await readOptional(join(cwd, "CLAUDE.md"));
+  if (!agentsText.ok) {
+    return agentsText;
+  }
+  if (!claudeText.ok) {
+    return claudeText;
+  }
+  const claude = planClaude(claudeText.value);
   const notes = [...packageJson.value.notes];
   if (eslint.status === "skipped") {
     notes.push(`Add this to ${eslint.file}:\n\n${eslintTemplate()}`);
   }
 
   return ok({
-    changes: [tsconfig.value, eslint, packageJson.value.change, extensions.value, settings.value],
+    changes: [
+      tsconfig.value,
+      eslint,
+      packageJson.value.change,
+      planAgents(agentsText.value, packageManager),
+      ...(claude === undefined ? [] : [claude]),
+      extensions.value,
+      settings.value,
+    ],
     missingPeers: packageJson.value.missingPeers,
-    packageManager: await detectPackageManager(cwd),
+    packageManager,
     notes,
   });
 }
