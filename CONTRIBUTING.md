@@ -22,6 +22,8 @@ export const parsed: unknown = JSON.parse("{}"); // @expect no-restricted-proper
 
 The test fails when a marked finding is missing or an unmarked finding appears. A change to the configuration needs matching fixture lines.
 
+Every rule the configuration enables needs a priority, a reason and a fix hint in `src/cli/report/classify.ts`. A test fails when one is missing.
+
 Custom rules in `src/eslint/rules/` are tested with `RuleTester` in `test/rules.test.ts`, with valid and invalid cases.
 
 ## Scope

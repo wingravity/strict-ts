@@ -10,10 +10,13 @@ const USAGE = `Usage: strict-ts <command> [options]
 
 Commands:
   init        Set up strict-ts in the current project
+  report      Write a prioritized report of all findings
 
 Options for init:
   --dry-run   Show what would change without writing anything
   --force     Overwrite an existing ESLint config
+
+Run "strict-ts report --help" for report options.
   -h, --help  Show this help`;
 
 const FALLBACK_SPEC = "github:wingravity/strict-ts";
@@ -82,6 +85,10 @@ async function main(argv: readonly string[]): Promise<number> {
   switch (command) {
     case "init":
       return init(rest);
+    case "report": {
+      const { runReport } = await import("./report/command.ts");
+      return runReport(rest);
+    }
     case undefined:
     case "-h":
     case "--help":
