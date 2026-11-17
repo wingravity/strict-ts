@@ -1,0 +1,24 @@
+name: Missing check
+description: Code that can fail at runtime and is not reported.
+labels: ["missing check"]
+body:
+  - type: textarea
+    id: code
+    attributes:
+      label: Code
+      description: The smallest code sample that should be reported.
+      render: ts
+    validations:
+      required: true
+  - type: textarea
+    id: failure
+    attributes:
+      label: Runtime failure
+      description: What happens when the code runs.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: strict-ts, TypeScript, ESLint and typescript-eslint versions.

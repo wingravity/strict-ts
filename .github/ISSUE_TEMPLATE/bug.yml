@@ -1,0 +1,30 @@
+name: Bug
+description: The CLI, a library function or the configuration does not behave as documented.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the full error output.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: strict-ts, Node, TypeScript, ESLint and typescript-eslint versions.
+    validations:
+      required: true
