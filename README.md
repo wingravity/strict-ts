@@ -132,9 +132,9 @@ To block merging on failures, mark the **Check** job as required in the branch p
 | Priority | Meaning | Examples |
 |---|---|---|
 | P0: Process can go down | can stop the whole process | floating promises, async callbacks where a void callback is expected |
-| P1: Silent wrong result | wrong data or behavior with no error raised | `as` casts, `any`, ignored Results, truthiness checks, non-exhaustive switches |
+| P1: Silent wrong result | wrong data or behavior with no error raised | `as` casts, `any`, ignored Results, truthiness checks on numbers, non-exhaustive switches |
 | P2: Request fails | throws at runtime and fails one request | possibly undefined access, `!`, throwing built-ins |
-| P3: Weak error handling | makes failures likelier or harder to handle | `throw`/`try` outside boundaries, unbounded schemas and loops |
+| P3: Weak error handling | makes failures likelier or harder to handle | `throw`/`try` outside boundaries, unbounded schemas and loops, truthiness checks on strings and booleans |
 | P4: No runtime effect | clarity only | bracket access, unused code, redundant expressions |
 
 ```sh

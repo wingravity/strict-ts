@@ -185,8 +185,8 @@ const ESLINT_RULES = new Map<string, Classification>([
   ),
   ...group(
     1,
-    "A truthiness check treats valid values such as 0 or an empty string as missing.",
-    'Compare explicitly: `value !== undefined`, `text !== ""`, `count > 0`.',
+    "A truthiness check on a number or an untyped value treats valid values such as 0 as missing.",
+    "Compare explicitly: `count !== undefined`, `count > 0`, or narrow the value first.",
     ["@typescript-eslint/strict-boolean-expressions"],
   ),
   ...group(
@@ -376,7 +376,16 @@ const THROWING_BUILT_IN: Classification = {
   fix: "Use the strict-ts/safe replacement named in the message.",
 };
 
+const TRUTHY_STRING_OR_BOOLEAN: Classification = {
+  priority: 3,
+  why: "A string or boolean is checked for truthiness, so an empty string or a missing value counts as false. This is usually intended, but implicit.",
+  fix: 'Compare explicitly: `text !== undefined && text !== ""`, `flag === true`.',
+};
+
 function classifyRestricted(ruleId: string, message: string): Classification | undefined {
+  if (ruleId === "@typescript-eslint/strict-boolean-expressions") {
+    return /\b(?:string|boolean) value\b/u.test(message) ? TRUTHY_STRING_OR_BOOLEAN : undefined;
+  }
   if (ruleId === "no-restricted-syntax") {
     if (/^(?:Don't throw|try\/catch|Promise\.reject|new Promise)/u.test(message)) {
       return NEVER_THROW;

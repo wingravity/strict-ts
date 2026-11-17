@@ -40,6 +40,17 @@ describe("classification", () => {
     assert.equal(classifyEslint("no-restricted-globals", "atob throws on invalid input.").priority, 2);
   });
 
+  it("splits truthiness checks by the kind of value", () => {
+    const rule = "@typescript-eslint/strict-boolean-expressions";
+    assert.equal(classifyEslint(rule, "Unexpected nullable number value in conditional.").priority, 1);
+    assert.equal(classifyEslint(rule, "Unexpected number value in conditional.").priority, 1);
+    assert.equal(classifyEslint(rule, "Unexpected any value in conditional.").priority, 1);
+    assert.equal(classifyEslint(rule, "Unexpected value in conditional. A boolean expression is required.").priority, 1);
+    assert.equal(classifyEslint(rule, "Unexpected nullable string value in conditional.").priority, 3);
+    assert.equal(classifyEslint(rule, "Unexpected string value in conditional.").priority, 3);
+    assert.equal(classifyEslint(rule, "Unexpected nullable boolean value in conditional.").priority, 3);
+  });
+
   it("orders compiler errors by consequence", () => {
     assert.equal(classifyTypeScript(2532).priority, 2);
     assert.equal(classifyTypeScript(7030).priority, 1);
