@@ -1,4 +1,5 @@
-import { AST_NODE_TYPES, type TSESLint, type TSESTree } from "@typescript-eslint/utils";
+import { AST_NODE_TYPES, type TSESTree } from "@typescript-eslint/types";
+import type { TSESLint } from "@typescript-eslint/utils";
 
 const ZOD_SOURCE = /^zod(?:\/.*)?$/u;
 const UNBOUNDED_FACTORIES = new Set([

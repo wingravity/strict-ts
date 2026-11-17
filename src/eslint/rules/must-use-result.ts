@@ -1,4 +1,5 @@
-import { AST_NODE_TYPES, type TSESLint, type TSESTree } from "@typescript-eslint/utils";
+import { AST_NODE_TYPES, type TSESTree } from "@typescript-eslint/types";
+import type { TSESLint } from "@typescript-eslint/utils";
 import ts from "typescript";
 
 const RESULT_DECLARATION = /strict-ts[\\/](?:dist|src)[\\/]result\.(?:d\.)?ts$/u;
