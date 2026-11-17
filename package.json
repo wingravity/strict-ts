@@ -1,0 +1,79 @@
+{
+  "name": "strict-ts",
+  "version": "0.0.0",
+  "description": "A TypeScript compiler configuration, an ESLint configuration and a Result library that enforce strict typing and errors-as-values.",
+  "license": "MIT",
+  "author": "Daniel Berigoi",
+  "type": "module",
+  "repository": "github:wingravity/strict-ts",
+  "engines": {
+    "node": ">=20.3"
+  },
+  "bin": {
+    "strict-ts": "./dist/cli/main.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./safe": {
+      "types": "./dist/safe/index.d.ts",
+      "default": "./dist/safe/index.js"
+    },
+    "./node": {
+      "types": "./dist/node/index.d.ts",
+      "default": "./dist/node/index.js"
+    },
+    "./eslint": {
+      "types": "./dist/eslint/index.d.ts",
+      "default": "./dist/eslint/index.js"
+    },
+    "./tsconfig.json": "./config/tsconfig.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "config",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "@typescript-eslint/rule-tester": "8.73.0",
+    "eslint": "10.15.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.73.0"
+  },
+  "peerDependencies": {
+    "eslint": "^9.35.0 || ^10.0.0",
+    "typescript": ">=5.8.0 <6.1.0",
+    "typescript-eslint": "^8.30.0"
+  },
+  "peerDependenciesMeta": {
+    "eslint": {
+      "optional": true
+    },
+    "typescript-eslint": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@typescript-eslint/utils": "^8.30.0"
+  },
+  "keywords": [
+    "typescript",
+    "eslint",
+    "strict",
+    "result",
+    "errors-as-values",
+    "never-throw"
+  ]
+}
