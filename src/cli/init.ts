@@ -3,6 +3,7 @@ import { err, ok, type AsyncResult, type Result } from "../result.ts";
 import { safeJsonParse, safeJsonStringify } from "../safe/json.ts";
 import { ensureDir, readTextFile, writeTextFile, type FsError } from "../node/fs.ts";
 import { asArray, isRecord, parseJsonc, setTopLevelProperty } from "./jsonc.ts";
+import { SUPPRESSIONS_API_VERSION, supportsSuppressionsApi } from "./eslint-version.ts";
 
 export const TSCONFIG_ENTRY = "strict-ts/tsconfig.json";
 export const ESLINT_EXTENSION = "dbaeumer.vscode-eslint";
@@ -238,7 +239,7 @@ function planVscodeExtensions(text: string | undefined): Result<Change, string> 
     : updated;
 }
 
-function planVscodeSettings(text: string | undefined): Result<Change, string> {
+function planVscodeSettings(text: string | undefined, suppressionsSupported: boolean): Result<Change, string> {
   const file = ".vscode/settings.json";
   const source = text ?? "{}\n";
   const parsed = parseJsonc(file, source);
@@ -256,7 +257,7 @@ function planVscodeSettings(text: string | undefined): Result<Change, string> {
     details.push("project TypeScript version");
   }
   const eslintOptions = readStringMap(parsed.value["eslint.options"]);
-  if (eslintOptions["applySuppressions"] !== true) {
+  if (suppressionsSupported && eslintOptions["applySuppressions"] !== true) {
     const updated = setTopLevelProperty(file, content, "eslint.options", { ...eslintOptions, applySuppressions: true });
     if (!updated.ok) {
       return updated;
@@ -268,6 +269,18 @@ function planVscodeSettings(text: string | undefined): Result<Change, string> {
     return ok({ file, status: "unchanged", detail: "already configured" });
   }
   return ok({ file, status: text === undefined ? "created" : "updated", detail: details.join(", "), content });
+}
+
+async function projectEslintVersion(cwd: string, pkg: Record<string, unknown>): Promise<string | undefined> {
+  const installed = await readOptional(join(cwd, "node_modules/eslint/package.json"));
+  if (installed.ok && installed.value !== undefined) {
+    const parsed = safeJsonParse(installed.value);
+    if (parsed.ok && isRecord(parsed.value) && typeof parsed.value["version"] === "string") {
+      return parsed.value["version"];
+    }
+  }
+  const declared = readStringMap(pkg["devDependencies"])["eslint"] ?? readStringMap(pkg["dependencies"])["eslint"];
+  return typeof declared === "string" ? declared : undefined;
 }
 
 async function detectPackageManager(cwd: string): Promise<string> {
@@ -326,7 +339,9 @@ export async function planInit(options: InitOptions): AsyncResult<InitReport, st
   const tsconfig = planTsconfig(tsconfigText.value);
   const packageJson = planPackageJson(packageText.value, pkg.value, options.packageSpec);
   const extensions = planVscodeExtensions(extensionsText.value);
-  const settings = planVscodeSettings(settingsText.value);
+  const eslintVersion = await projectEslintVersion(cwd, pkg.value);
+  const suppressionsSupported = eslintVersion === undefined || supportsSuppressionsApi(eslintVersion);
+  const settings = planVscodeSettings(settingsText.value, suppressionsSupported);
   if (!tsconfig.ok) {
     return tsconfig;
   }
@@ -352,6 +367,11 @@ export async function planInit(options: InitOptions): AsyncResult<InitReport, st
   }
   const claude = planClaude(claudeText.value);
   const notes = [...packageJson.value.notes];
+  if (!suppressionsSupported) {
+    notes.push(
+      `Applying bulk suppressions in the editor needs ESLint ${SUPPRESSIONS_API_VERSION} or later; this project uses ESLint ${eslintVersion}. The editor setting was not added.`,
+    );
+  }
   if (eslint.status === "skipped") {
     notes.push(`Add this to ${eslint.file}:\n\n${eslintTemplate()}`);
   }

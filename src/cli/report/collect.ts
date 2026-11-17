@@ -1,11 +1,12 @@
 import { dirname, join, relative, resolve } from "node:path";
 import ts from "typescript";
 import { ESLint } from "eslint";
-import { attemptAsync, err, ok, type AsyncResult, type Result } from "../../result.ts";
+import { attempt, attemptAsync, err, ok, type AsyncResult, type Result } from "../../result.ts";
 import { describeCause } from "../../error.ts";
 import { readTextFile } from "../../node/fs.ts";
 import { strictTs } from "../../eslint/index.ts";
 import { asArray, isRecord, parseJsonc } from "../jsonc.ts";
+import { SUPPRESSIONS_API_VERSION, supportsSuppressionsApi } from "../eslint-version.ts";
 import {
   classifyEslint,
   classifyTypeScript,
@@ -220,11 +221,20 @@ export async function buildReport(options: ReportOptions): AsyncResult<Report, s
     return typescript;
   }
 
-  const eslint = new ESLint({
-    cwd,
-    applySuppressions: options.respectSuppressions === true,
-    ...options.eslintOptions,
-  });
+  const respectSuppressions = options.respectSuppressions === true;
+  if (respectSuppressions && !supportsSuppressionsApi(ESLint.version)) {
+    return err(
+      `--respect-suppressions needs ESLint ${SUPPRESSIONS_API_VERSION} or later; this project uses ESLint ${ESLint.version}`,
+    );
+  }
+  const created = attempt(
+    () => new ESLint({ cwd, ...(respectSuppressions ? { applySuppressions: true } : {}), ...options.eslintOptions }),
+    (cause) => `ESLint could not start: ${describeCause(cause)}`,
+  );
+  if (!created.ok) {
+    return created;
+  }
+  const eslint = created.value;
   const results = await attemptAsync(
     () => eslint.lintFiles(["."]),
     (cause) => `ESLint failed: ${describeCause(cause)}`,

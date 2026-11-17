@@ -56,7 +56,7 @@ Commit the generated `eslint-suppressions.json`. TypeScript errors cannot be sup
 | `AGENTS.md` | adds a strict-ts section with instructions for coding agents, or creates the file |
 | `CLAUDE.md` | if it exists, adds `@AGENTS.md` so Claude Code also reads those instructions; never created |
 | `.vscode/extensions.json` | recommends the ESLint extension |
-| `.vscode/settings.json` | uses the project's TypeScript version and applies bulk suppressions in the editor |
+| `.vscode/settings.json` | uses the project's TypeScript version and, with ESLint 10.1 or later, applies bulk suppressions in the editor |
 
 It also prints the install command for any missing peer dependency (`typescript`, `eslint`, `typescript-eslint`). Running it again changes nothing.
 
@@ -145,7 +145,7 @@ npx strict-ts report --format json   # all findings as JSON
 
 Production code is listed before tests. Each rule in the report states why it matters and how to fix it, and the report lists the files with the most P0 to P2 findings. It also lists any strict-ts rule or compiler flag that the project's configuration turns off or downgrades.
 
-The report includes findings recorded in `eslint-suppressions.json`; `--respect-suppressions` leaves them out. `--project <tsconfig>` selects the tsconfig. The command always exits with code 0: use `npm run check` as the CI gate. Add `strict-ts-report.md` to `.gitignore` if it should not be committed.
+The report includes findings recorded in `eslint-suppressions.json`; `--respect-suppressions` leaves them out (requires ESLint 10.1 or later). `--project <tsconfig>` selects the tsconfig. The command always exits with code 0: use `npm run check` as the CI gate. Add `strict-ts-report.md` to `.gitignore` if it should not be committed.
 
 ## Coding agents
 

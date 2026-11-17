@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { AGENTS_END, AGENTS_START, applyInit, CHECK_SCRIPT, planInit, type InitReport } from "../src/cli/init.ts";
 import { parseJsonc } from "../src/cli/jsonc.ts";
+import { supportsSuppressionsApi } from "../src/cli/eslint-version.ts";
 
 const SPEC = "github:wingravity/strict-ts#v1.2.3";
 let dir = "";
@@ -245,9 +246,42 @@ describe("strict-ts init", () => {
     assert.equal(statuses(again)["CLAUDE.md"], "unchanged");
   });
 
+  it("leaves out the editor suppressions setting for ESLint older than 10.1", async () => {
+    await write("package.json", `{ "name": "app", "devDependencies": { "eslint": "^9.39.2" } }`);
+    await write("tsconfig.json", `{}`);
+    const report = await init();
+    const settings = parseJsonc("settings.json", await read(".vscode/settings.json"));
+    assert.ok(settings.ok);
+    assert.deepEqual(settings.value, { "typescript.tsdk": "node_modules/typescript/lib" });
+    assert.ok(report.notes.some((note) => note.includes("ESLint 10.1.0 or later") && note.includes("^9.39.2")));
+  });
+
+  it("prefers the installed ESLint version over the declared range", async () => {
+    await write("package.json", `{ "name": "app", "devDependencies": { "eslint": "^9.39.2" } }`);
+    await write("node_modules/eslint/package.json", `{ "name": "eslint", "version": "10.15.0" }`);
+    await write("tsconfig.json", `{}`);
+    await init();
+    const settings = parseJsonc("settings.json", await read(".vscode/settings.json"));
+    assert.ok(settings.ok);
+    assert.deepEqual(settings.value["eslint.options"], { applySuppressions: true });
+  });
+
   it("fails without a package.json", async () => {
     const report = await planInit({ cwd: dir, packageSpec: SPEC });
     assert.ok(!report.ok && report.error.includes("No package.json"));
+  });
+});
+
+describe("supportsSuppressionsApi", () => {
+  it("accepts ESLint 10.1 and later only", () => {
+    assert.equal(supportsSuppressionsApi("10.1.0"), true);
+    assert.equal(supportsSuppressionsApi("10.15.0"), true);
+    assert.equal(supportsSuppressionsApi("11.0.0"), true);
+    assert.equal(supportsSuppressionsApi("^10.2.0"), true);
+    assert.equal(supportsSuppressionsApi("10.0.0"), false);
+    assert.equal(supportsSuppressionsApi("9.39.2"), false);
+    assert.equal(supportsSuppressionsApi("^9.35.0 || ^10.0.0"), false);
+    assert.equal(supportsSuppressionsApi("latest"), false);
   });
 });
 

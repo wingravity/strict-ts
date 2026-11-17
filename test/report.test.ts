@@ -89,6 +89,21 @@ describe("buildReport", () => {
     assert.ok(!weakened.findings.some((f) => f.rule === "@typescript-eslint/no-explicit-any"));
   });
 
+  it("can leave out suppressed findings", async () => {
+    const built = await buildReport({
+      cwd: fixtureDir,
+      respectSuppressions: true,
+      eslintOptions: { overrideConfigFile: true, overrideConfig: config() },
+    });
+    assert.ok(built.ok, built.ok ? "" : built.error);
+    assert.equal(built.value.findings.length, full.findings.length);
+  });
+
+  it("returns an error instead of throwing when ESLint cannot start", async () => {
+    const built = await buildReport({ cwd: fixtureDir, eslintOptions: { overrideConfigFile: 42 as unknown as string } });
+    assert.ok(!built.ok && built.error.startsWith("ESLint could not start"));
+  });
+
   it("renders Markdown, JSON and the next-findings list", () => {
     const markdown = renderMarkdown(full, "project");
     assert.ok(markdown.startsWith("# strict-ts report"));
