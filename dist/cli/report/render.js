@@ -1,0 +1,132 @@
+import { safeJsonStringify } from "../../safe/json.js";
+import { err, ok } from "../../result.js";
+import { PRIORITY_DESCRIPTIONS, PRIORITY_TITLES } from "./classify.js";
+const PRIORITIES = [0, 1, 2, 3, 4];
+const TOP_FILES = 10;
+function label(priority) {
+    return `P${String(priority)}: ${PRIORITY_TITLES[priority]}`;
+}
+function oneLine(text) {
+    return text.replaceAll(/\s+/gu, " ").trim();
+}
+function location(finding) {
+    return `${finding.file}:${String(finding.line)}:${String(finding.column)}`;
+}
+function countBy(items, key) {
+    const groups = new Map();
+    for (const item of items) {
+        const name = key(item);
+        groups.set(name, [...(groups.get(name) ?? []), item]);
+    }
+    return groups;
+}
+export function summarize(findings) {
+    const tally = (test) => Object.fromEntries(PRIORITIES.map((priority) => [
+        `P${String(priority)}`,
+        findings.filter((f) => f.test === test && f.priority === priority).length,
+    ]));
+    return { production: tally(false), tests: tally(true), total: findings.length };
+}
+function ruleSections(findings, headingLevel) {
+    const lines = [];
+    const byRule = [...countBy(findings, (f) => f.rule)].sort((a, b) => b[1].length - a[1].length);
+    for (const [rule, group] of byRule) {
+        const first = group[0];
+        if (first === undefined) {
+            continue;
+        }
+        lines.push(`${headingLevel} \`${rule}\` (${String(group.length)})`, "");
+        lines.push(`${first.why} **Fix:** ${first.fix}`, "");
+        lines.push("<details>", `<summary>${String(group.length)} locations</summary>`, "");
+        for (const f of group) {
+            lines.push(`- \`${location(f)}\` ${oneLine(f.message)}`);
+        }
+        lines.push("", "</details>", "");
+    }
+    return lines;
+}
+export function renderMarkdown(report, projectName) {
+    const production = report.findings.filter((f) => !f.test);
+    const tests = report.findings.filter((f) => f.test);
+    const summary = summarize(report.findings);
+    const date = report.generatedAt.slice(0, 10);
+    const lines = [
+        "# strict-ts report",
+        "",
+        `Project \`${projectName}\`, generated on ${date}. ${String(report.findings.length)} findings: ${String(production.length)} in production code, ${String(tests.length)} in tests.`,
+        "",
+        "Findings are ordered by the worst realistic runtime consequence of each rule. Within each priority, production code comes before tests.",
+        "",
+        "## Summary",
+        "",
+        "| Priority | Production | Tests |",
+        "|---|---:|---:|",
+    ];
+    for (const priority of PRIORITIES) {
+        const key = `P${String(priority)}`;
+        lines.push(`| ${label(priority)} | ${String(summary.production[key] ?? 0)} | ${String(summary.tests[key] ?? 0)} |`);
+    }
+    lines.push(`| **Total** | **${String(production.length)}** | **${String(tests.length)}** |`, "");
+    for (const priority of PRIORITIES) {
+        lines.push(`- **${label(priority)}.** ${PRIORITY_DESCRIPTIONS[priority]}`);
+    }
+    lines.push("");
+    if (report.configChanges.length > 0) {
+        lines.push("## Configuration changes", "", "The project configuration weakens strict-ts in these places. Code they would report is not in this report.", "", "| Setting | strict-ts | Project |", "|---|---|---|", ...report.configChanges.map((c) => `| \`${c.setting}\` | ${c.expected} | ${c.actual} |`), "");
+    }
+    const urgent = production.filter((f) => f.priority <= 2);
+    if (urgent.length > 0) {
+        lines.push("## Files with the most P0 to P2 findings", "", "| File | P0 | P1 | P2 | Total |", "|---|---:|---:|---:|---:|");
+        const byFile = [...countBy(urgent, (f) => f.file)].sort((a, b) => b[1].length - a[1].length).slice(0, TOP_FILES);
+        for (const [file, group] of byFile) {
+            const count = (priority) => String(group.filter((f) => f.priority === priority).length);
+            lines.push(`| \`${file}\` | ${count(0)} | ${count(1)} | ${count(2)} | ${String(group.length)} |`);
+        }
+        lines.push("");
+    }
+    for (const priority of PRIORITIES) {
+        const group = production.filter((f) => f.priority === priority);
+        if (group.length === 0) {
+            continue;
+        }
+        lines.push(`## ${label(priority)}`, "", PRIORITY_DESCRIPTIONS[priority], "", ...ruleSections(group, "###"));
+    }
+    if (tests.length > 0) {
+        lines.push("## Tests", "", "Findings in test files, grouped by priority.", "");
+        for (const priority of PRIORITIES) {
+            const group = tests.filter((f) => f.priority === priority);
+            if (group.length > 0) {
+                lines.push(`### ${label(priority)}`, "", ...ruleSections(group, "####"));
+            }
+        }
+    }
+    return `${lines.join("\n").trimEnd()}\n`;
+}
+export function renderJson(report, limit) {
+    const findings = limit === undefined ? report.findings : report.findings.slice(0, limit);
+    const json = safeJsonStringify({
+        generatedAt: report.generatedAt,
+        project: report.project,
+        summary: summarize(report.findings),
+        configChanges: report.configChanges,
+        findings,
+    }, 2);
+    return json.ok ? ok(`${json.value}\n`) : err(json.error.message);
+}
+export function renderNext(report, limit) {
+    const summary = summarize(report.findings);
+    const counts = PRIORITIES.map((p) => `P${String(p)} ${String((summary.production[`P${String(p)}`] ?? 0) + (summary.tests[`P${String(p)}`] ?? 0))}`).join(", ");
+    const shown = report.findings.slice(0, limit);
+    const lines = [
+        `strict-ts: ${String(report.findings.length)} findings (${counts}). Showing the first ${String(shown.length)}, highest priority first.`,
+        "",
+    ];
+    if (report.configChanges.length > 0) {
+        lines.push(`Configuration weakens strict-ts: ${report.configChanges.map((c) => `${c.setting} is ${c.actual}`).join("; ")}.`, "");
+    }
+    shown.forEach((f, index) => {
+        lines.push(`${String(index + 1)}. [P${String(f.priority)}] ${location(f)} ${f.rule}${f.test ? " (test)" : ""}`, `   ${oneLine(f.message)}`, `   Fix: ${f.fix}`);
+    });
+    return `${lines.join("\n")}\n`;
+}
+//# sourceMappingURL=render.js.map
