@@ -78,7 +78,8 @@ describe("strict-ts init", () => {
     const pkg = parseJsonc("package.json", await read("package.json"));
     assert.ok(pkg.ok);
     assert.deepEqual(pkg.value["scripts"], { check: CHECK_SCRIPT });
-    assert.deepEqual(pkg.value["devDependencies"], { "strict-ts": SPEC });
+    assert.deepEqual(pkg.value["dependencies"], { "strict-ts": SPEC });
+    assert.equal(pkg.value["devDependencies"], undefined);
 
     assert.ok((await read("eslint.config.js")).includes('from "strict-ts/eslint"'));
     const settings = parseJsonc("settings.json", await read(".vscode/settings.json"));
@@ -189,6 +190,16 @@ describe("strict-ts init", () => {
     assert.deepEqual(pkg.value["scripts"], { check: "biome check" });
     assert.ok(report.notes.some((note) => note.includes("Kept your existing")));
     assert.deepEqual(report.missingPeers, ["typescript", "typescript-eslint"]);
+  });
+
+  it("leaves strict-ts in devDependencies and asks to move it", async () => {
+    await write("package.json", `{ "name": "app", "devDependencies": { "strict-ts": "${SPEC}" } }`);
+    await write("tsconfig.json", `{}`);
+    const report = await init();
+    const pkg = parseJsonc("package.json", await read("package.json"));
+    assert.ok(pkg.ok);
+    assert.equal(pkg.value["dependencies"], undefined);
+    assert.ok(report.notes.some((note) => note.includes("Move it to dependencies")));
   });
 
   it("skips a missing tsconfig and detects pnpm", async () => {

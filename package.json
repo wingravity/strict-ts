@@ -60,6 +60,9 @@
     "typescript-eslint": "^8.30.0"
   },
   "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    },
     "eslint": {
       "optional": true
     },

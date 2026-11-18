@@ -33,3 +33,7 @@ strict-ts reports code that can fail at runtime. Style, formatting and maintaina
 ## Pull requests
 
 Keep changes focused. Code comments are reserved for logic that cannot be understood from the code itself.
+
+## Releases
+
+`main` holds source only. Running the **Release** workflow with a version such as `0.2.0` runs the checks, builds, commits `dist/` onto a release commit, tags it `v0.2.0`, and moves the `release` branch (the repository's default) to it. That is why `npx github:wingravity/strict-ts init` runs the latest release, and why installs never need a build step.

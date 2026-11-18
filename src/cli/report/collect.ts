@@ -51,6 +51,7 @@ export interface ReportOptions {
 
 const TEST_FILE = /(?:\.(?:test|spec)\.[cm]?tsx?$)|(?:(?:^|\/)__tests__\/)/u;
 const BOUNDARY_FILE = /(?:\.boundary\.tsx?$)|(?:(?:^|\/)boundary\/)/u;
+const TYPESCRIPT_SOURCE = /(?<!\.d)\.[cm]?tsx?$/u;
 
 export function isTestFile(file: string): boolean {
   return TEST_FILE.test(file);
@@ -261,7 +262,7 @@ export async function buildReport(options: ReportOptions): AsyncResult<Report, s
 
   const sample = results.value.find((result) => {
     const file = relative(cwd, result.filePath);
-    return !isTestFile(file) && !BOUNDARY_FILE.test(file);
+    return TYPESCRIPT_SOURCE.test(file) && !isTestFile(file) && !BOUNDARY_FILE.test(file);
   });
   const ruleChanges = sample === undefined ? [] : await eslintRuleChanges(eslint, sample.filePath);
   const flagChanges = await compilerFlagChanges(typescript.value.options);

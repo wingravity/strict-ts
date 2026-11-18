@@ -198,15 +198,19 @@ function planPackageJson(
   }
 
   if (devDependencies["strict-ts"] === undefined && dependencies["strict-ts"] === undefined) {
-    const updated = setTopLevelProperty(file, content, "devDependencies", {
-      ...devDependencies,
+    const updated = setTopLevelProperty(file, content, "dependencies", {
+      ...dependencies,
       "strict-ts": packageSpec,
     });
     if (!updated.ok) {
       return updated;
     }
     content = updated.value;
-    details.push(`strict-ts dev dependency (${packageSpec})`);
+    details.push(`strict-ts dependency (${packageSpec})`);
+  } else if (dependencies["strict-ts"] === undefined) {
+    notes.push(
+      "strict-ts is in devDependencies. Move it to dependencies: code that imports strict-ts needs it at runtime, and installs that omit dev dependencies leave it out.",
+    );
   }
 
   const missingPeers = PEERS.filter((name) => devDependencies[name] === undefined && dependencies[name] === undefined);
