@@ -1,0 +1,1 @@
+{"version":3,"file":"no-mutable-array-widening.d.ts","sourceRoot":"","sources":["../../../src/eslint/rules/no-mutable-array-widening.ts"],"names":[],"mappings":"AACA,OAAO,KAAK,EAAE,QAAQ,EAAE,MAAM,0BAA0B,CAAC;AAGzD,KAAK,SAAS,GAAG,SAAS,CAAC;AA0B3B,eAAO,MAAM,sBAAsB,EAAE,QAAQ,CAAC,UAAU,CAAC,SAAS,CA4GjE,CAAC"}

@@ -1,0 +1,3 @@
+export declare const REPORT_USAGE = "Usage: strict-ts report [options]\n\nRuns the TypeScript compiler and ESLint and groups every finding by priority.\n\nOptions:\n  --format md|json         Output format (default: md)\n  --out <file>             Output file (default: strict-ts-report.md for md, standard output for json)\n  --next <n>               Print only the first n findings, highest priority first, to standard output\n  --project <tsconfig>     tsconfig to type-check (default: tsconfig.json)\n  --respect-suppressions   Leave out findings recorded in eslint-suppressions.json\n  -h, --help               Show this help";
+export declare function runReport(args: readonly string[]): Promise<number>;
+//# sourceMappingURL=command.d.ts.map
