@@ -185,6 +185,12 @@ const ESLINT_RULES = new Map<string, Classification>([
   ),
   ...group(
     1,
+    "A mutable array is used as a mutable array of a wider type, so code holding it can add an element of the wrong type to the original array.",
+    "Type the target as a readonly array, such as `readonly Animal[]`, or pass a copy with `[...items]`.",
+    ["strict-ts/no-mutable-array-widening"],
+  ),
+  ...group(
+    1,
     "A truthiness check on a number or an untyped value treats valid values such as 0 as missing.",
     "Compare explicitly: `count !== undefined`, `count > 0`, or narrow the value first.",
     ["@typescript-eslint/strict-boolean-expressions"],

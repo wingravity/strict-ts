@@ -11,6 +11,7 @@ Reference for code written in projects that use strict-ts. Every function listed
 - Built-ins that throw (`JSON.parse`, `JSON.stringify`, `new URL`, `fetch`, `response.json()`, `decodeURIComponent`, `encodeURIComponent`, `decodeURI`, `encodeURI`, `BigInt()`, `structuredClone`, `atob`, `btoa`, `new RegExp`) are replaced by the functions in `strict-ts/safe`.
 - `while`, `do...while`, `for(;;)`, generators and `setInterval` are not allowed. Use `for...of`, counted `for` loops and array methods.
 - Indexed access returns `T | undefined`. Check before use.
+- A function that only reads an array takes `readonly T[]`. A mutable `Dog[]` cannot be passed or assigned where a mutable `Animal[]` is expected, because code holding the `Animal[]` could add a non-Dog to it. Use a readonly type, or pass a copy (`[...dogs]`).
 - In `if` conditions, compare strings and numbers explicitly (`text !== ""`, `count > 0`).
 - A `switch` over a union must list every member. `default` does not count.
 

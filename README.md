@@ -38,7 +38,7 @@ flowchart LR
 | Priority | Meaning | Examples |
 |---|---|---|
 | P0: Process can go down | can stop the whole process | floating promises, async callbacks where a void callback is expected |
-| P1: Silent wrong result | wrong data or behavior with no error raised | `as` casts, `any`, ignored Results, truthiness checks on numbers, non-exhaustive switches |
+| P1: Silent wrong result | wrong data or behavior with no error raised | `as` casts, `any`, ignored Results, `Dog[]` used as a mutable `Animal[]`, truthiness checks on numbers, non-exhaustive switches |
 | P2: Request fails | throws at runtime and fails one request | possibly undefined access, `!`, throwing built-ins |
 | P3: Weak error handling | makes failures likelier or harder to handle | `throw`/`try` outside boundaries, unbounded schemas and loops, truthiness checks on strings and booleans |
 | P4: No runtime effect | clarity only | bracket access, unused code, redundant expressions |
@@ -326,6 +326,7 @@ Built on typescript-eslint `strictTypeChecked` plus ESLint's full recommended se
   - `===` only.
   - Numbers allowed in template strings.
 - **Never throw** (outside boundary files): `throw`, `try`, `Promise.reject`, `new Promise`, throwing built-ins and `throwingModules` imports.
+- **Unsafe array widening:** `strict-ts/no-mutable-array-widening` reports a mutable array used as a mutable array of a wider type, such as a `Dog[]` assigned or passed where an `Animal[]` is expected. TypeScript allows this, and code holding the `Animal[]` can then add a non-Dog to the original array. Readonly targets and copies are allowed.
 - **Ignored errors:** `strict-ts/must-use-result` reports a discarded Result, such as `save();` or `items.forEach((x) => save(x))`. This is the equivalent of Go's `errcheck`.
 - **Bounded input and loops:** `strict-ts/bounded-schemas` requires `.max()` on Zod strings and arrays. `while`, `do...while`, `for(;;)`, generators and `setInterval` are banned.
 - **No escape hatches in source:** `// eslint-disable` comments have no effect; exceptions go in `eslint.config.js`.

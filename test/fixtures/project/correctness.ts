@@ -25,3 +25,15 @@ export function misused(ids: readonly string[]): void {
     await save();
   });
 }
+
+interface Animal { readonly name: string }
+interface Dog extends Animal { bark(): void }
+
+export function widened(dogs: Dog[]): Animal[] {
+  const animals: Animal[] = dogs; // @expect strict-ts/no-mutable-array-widening
+  return animals;
+}
+
+export function copied(dogs: Dog[]): readonly Animal[] {
+  return dogs;
+}

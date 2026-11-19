@@ -91,9 +91,9 @@ function restrictedImports(modules: readonly string[]): FlatConfig.RuleEntry {
 const recommendedCoreRules: FlatConfig.Rules = Object.fromEntries(ESLINT_RECOMMENDED.map((name) => [name, "error"]));
 
 export function strictTs(options: StrictTsOptions = {}): FlatConfig.Config[] {
-  const files = [...(options.files ?? DEFAULT_FILES)];
-  const boundary = [...(options.boundary ?? DEFAULT_BOUNDARY)];
-  const tests = [...(options.tests ?? DEFAULT_TESTS)];
+  const files: (string | string[])[] = [...(options.files ?? DEFAULT_FILES)];
+  const boundary: (string | string[])[] = [...(options.boundary ?? DEFAULT_BOUNDARY)];
+  const tests: (string | string[])[] = [...(options.tests ?? DEFAULT_TESTS)];
   const throwingModules = options.throwingModules ?? [];
 
   const typescriptConfigs: FlatConfig.Config[] = tseslint.configs.strictTypeChecked.map((config) => ({
@@ -174,6 +174,7 @@ export function strictTs(options: StrictTsOptions = {}): FlatConfig.Config[] {
         "no-new-func": "error",
         "strict-ts/must-use-result": "error",
         "strict-ts/bounded-schemas": "error",
+        "strict-ts/no-mutable-array-widening": "error",
         "no-restricted-syntax": ["error", ...restrictedSyntax],
         "no-restricted-properties": ["error", ...restrictedProperties],
         "no-restricted-globals": ["error", ...restrictedGlobals],

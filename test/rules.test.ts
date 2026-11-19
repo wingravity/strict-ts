@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { RuleTester } from "@typescript-eslint/rule-tester";
 import { mustUseResult } from "../src/eslint/rules/must-use-result.ts";
 import { boundedSchemas } from "../src/eslint/rules/bounded-schemas.ts";
+import { noMutableArrayWidening } from "../src/eslint/rules/no-mutable-array-widening.ts";
 
 RuleTester.afterAll = after;
 RuleTester.describe = describe;
@@ -45,6 +46,49 @@ typed.run("must-use-result", mustUseResult, {
     { code: `${header} [1].forEach(() => save());`, errors: [{ messageId: "ignored" }] },
     { code: `${header} ok(1);`, errors: [{ messageId: "ignored" }] },
     { code: `${header} map(save(), (n) => n + 1);`, errors: [{ messageId: "ignored" }] },
+  ],
+});
+
+const animals = `
+interface Animal { readonly name: string }
+interface Dog extends Animal { bark(): void }
+interface Cat extends Animal { meow(): void }
+declare const rex: Dog;
+declare const dogs: Dog[];
+declare const readonlyDogs: readonly Dog[];
+declare const pair: [Dog, Dog];
+declare const holder: { dogs: Dog[] };
+declare const flag: boolean;
+declare function addAnimal(list: Animal[]): void;
+declare function readAnimals(list: readonly Animal[]): void;
+declare function first<T>(list: T[]): T | undefined;
+`;
+
+typed.run("no-mutable-array-widening", noMutableArrayWidening, {
+  valid: [
+    `${animals} export const a: readonly Animal[] = dogs;`,
+    `${animals} export const a: Dog[] = dogs;`,
+    `${animals} export const a: Animal[] = [rex];`,
+    `${animals} export const a: Animal[] = [...dogs];`,
+    `${animals} export const a: Animal[] = dogs.slice();`,
+    `${animals} export const a = dogs;`,
+    `${animals} export const a: readonly Animal[] = readonlyDogs;`,
+    `${animals} readAnimals(dogs);`,
+    `${animals} export const d = first(dogs);`,
+    `${animals} export const names: string[] = dogs.map((d) => d.name);`,
+  ],
+  invalid: [
+    { code: `${animals} export const a: Animal[] = dogs;`, errors: [{ messageId: "widened" }] },
+    { code: `${animals} let a: Animal[] = []; a = dogs; export { a };`, errors: [{ messageId: "widened" }] },
+    { code: `${animals} addAnimal(dogs);`, errors: [{ messageId: "widened" }] },
+    { code: `${animals} export function f(): Animal[] { return dogs; }`, errors: [{ messageId: "widened" }] },
+    { code: `${animals} export const f = (): Animal[] => dogs;`, errors: [{ messageId: "widened" }] },
+    { code: `${animals} export const o: { list: Animal[] } = { list: dogs };`, errors: [{ messageId: "widened" }] },
+    { code: `${animals} export const a: Animal[] = holder.dogs;`, errors: [{ messageId: "widened" }] },
+    { code: `${animals} export const a: (Dog | Cat)[] = dogs;`, errors: [{ messageId: "widened" }] },
+    { code: `${animals} export const a: Animal[] = flag ? dogs : [];`, errors: [{ messageId: "widened" }] },
+    { code: `${animals} export const a: Animal[] = pair;`, errors: [{ messageId: "widened" }] },
+    { code: `${animals} export const a: Animal[][] = [dogs];`, errors: [{ messageId: "widened" }] },
   ],
 });
 
